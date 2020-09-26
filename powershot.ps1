@@ -66,11 +66,11 @@ function Compare-Snapshot($referenceSnapshot, $differenceSnapshot){
                 select-object -ExpandProperty Modules | 
                 Select-Object -ExpandProperty Name | 
                 Sort-Object -Unique
-	    $newModules = foreach($module in $proc.Modules){
+            $newModules = foreach($module in $proc.Modules){
                 if($referenceModuleNames -notcontains $module.Name){
-			write-output $module
-		}
-	}
+                    write-output $module
+                }
+            }
             if($newModules.length -gt 0){
                 $properties = @{
                     'Name' = $proc.Name;
