@@ -1,5 +1,5 @@
 # powershot
-PowerShell snapshot
+Snapshot processes and loaded modules to identify C2
 
 ## Example: Starting a process
 
