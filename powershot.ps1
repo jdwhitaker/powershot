@@ -60,7 +60,7 @@ function Get-SnapshotPaths($snapshot){
 
 function Get-SnapshotNewProcesses($reference, $difference){
     $referenceProcessPaths = get-SnapshotPaths($reference)
-    $differenceProcessPaths = get-SnapshotPaths($reference)
+    $differenceProcessPaths = get-SnapshotPaths($difference)
     if(!$referenceProcessPaths){
         Write-Output $differenceProcessPaths
     }
@@ -80,7 +80,6 @@ function Get-SnapshotNewModules($processPath, $refSnapshot, $difSnapshot){
         Sort-Object -Unique
     $difModules = $difSnapshot |
         Where-Object -Property Path -EQ $processPath |
-        Where-Object -Property Modules -ne $null |
         Select-Object -ExpandProperty Modules |
         Select-Object -ExpandProperty Path | 
         Sort-Object -Unique
@@ -99,22 +98,18 @@ function Get-SnapshotNewModules($processPath, $refSnapshot, $difSnapshot){
 function Compare-Snapshot($referenceSnapshot, $differenceSnapshot){
     $newProcesses = Get-SnapshotNewProcesses($referenceSnapshot, $differenceSnapshot);
     $newModulesByProcess = foreach($process in $differenceSnapshot){
-        if($process.Path -and !($newProcesses -contains $process.Path)){
-            $newModules = Get-SnapshotNewModules -processPath $process.Path -refSnapshot $referenceSnapshot -difSnapshot $differenceSnapshot
-            $properties = @{
-                'Name' = $process.Name;
-                'Path' = $process.Path;
-                'NewModules' = $newModules;
-            }
-            if($null -ne $properties['NewModules']){
-                New-object psobject -Property $properties | 
-                    Write-Output
-            }
+        $newModules = Get-SnapshotNewModules -processPath $process.Path -refSnapshot $referenceSnapshot -difSnapshot $differenceSnapshot
+        $properties = @{
+            'Name' = $process.Name;
+            'Path' = $process.Path;
+            'NewModules' = $newModules;
         }
+        New-object psobject -Property $properties | 
+            Write-Output
     } 
     $properties = @{
-        'NewProcesses' = $newProcesses;
-        'NewModules' = $newModulesByProcess | Sort-Object -Unique;
+        'NewProcesses' = $newProcesses | sort-object -unique;
+        'NewModules' = $newModulesByProcess | Sort-Object -Unique -property Path;
     }
     $retval = New-Object PSObject -Property $properties
     write-output $retval
