@@ -1,8 +1,8 @@
 function get-snapshot(){
     $cache_md5 = @{};
     $cache_sha1 = @{};
-    function Get-SnapshotHashes($path){
-        if(!$path){
+    function Get-SnapshotHashes($processPath){
+        if(!$processPath){
             return @{
                 'MD5' = '';
                 'SHA1' = '';
@@ -10,19 +10,19 @@ function get-snapshot(){
         }
         $retMD5 = '';
         $retSHA1 = '';
-        if($cache_md5.containsKey($path)){
-            $retMD5 = $cache_md5[$path]
+        if($cache_md5.containsKey($processPath)){
+            $retMD5 = $cache_md5[$processPath]
         }
         else{
-            $retMD5 =  get-filehash -path $path -algorithm MD5
-            $cache_md5[$path] = $retMD5
+            $retMD5 =  get-filehash -path $processPath -algorithm MD5
+            $cache_md5[$processPath] = $retMD5
         }
-        if($cache_sha1.containsKey($path)){
-            $retSHA1 = $cache_sha1[$path]
+        if($cache_sha1.containsKey($processPath)){
+            $retSHA1 = $cache_sha1[$processPath]
         }
         else{
-            $retSHA1 =  get-filehash -path $path -algorithm SHA1
-            $cache_sha1[$path] = $retSHA1
+            $retSHA1 =  get-filehash -path $processPath -algorithm SHA1
+            $cache_sha1[$processPath] = $retSHA1
         }
         return @{
             'MD5' = $retMD5;
@@ -31,7 +31,7 @@ function get-snapshot(){
     }
     foreach($process in get-process){
         $name = $process.ProcessName
-        $path = $process.Path
+        $processPath = $process.Path
         $modules = foreach($module in $process.Modules){
             $moduleProperties = @{
                 'Name' = $module.ModuleName;
@@ -43,8 +43,8 @@ function get-snapshot(){
         }
         $properties = @{
             'Name' = $name;
-            'Path' = $path;
-            'Hashes' = get-snapshothashes($path);
+            'Path' = $processPath;
+            'Hashes' = get-snapshothashes($processPath);
             'Modules' = $modules;
         }
         $retval = New-Object PSObject -Property $properties
@@ -59,46 +59,62 @@ function Get-SnapshotPaths($snapshot){
 }
 
 function Get-SnapshotNewProcesses($reference, $difference){
-    $referenceProcessPaths = get-SnapshotPaths($referenceSnapshot)
-    $differenceProcessPaths = get-SnapshotPaths($differenceSnapshot)
-    $newProcesses = Compare-Object $referenceProcessPaths $differenceProcessPaths |
-        Where-Object -Property SideIndicator -Eq '=>' |
-        Select-Object -ExpandProperty InputObject
-    write-output $newProcesses
+    $referenceProcessPaths = get-SnapshotPaths($reference)
+    $differenceProcessPaths = get-SnapshotPaths($reference)
+    if(!$referenceProcessPaths){
+        Write-Output $differenceProcessPaths
+    }
+    else{
+        Compare-Object $referenceProcessPaths $differenceProcessPaths |
+            Where-Object -Property SideIndicator -Eq '=>' |
+            Select-Object -ExpandProperty InputObject |
+            write-output
+    }
 }
 
-function Get-SnapshotNewModules($path, $refSnapshot, $difSnapshot){
+function Get-SnapshotNewModules($processPath, $refSnapshot, $difSnapshot){
     $refModules = $refSnapshot |
-        Where-Object -Property Path -EQ $path |
+        Where-Object -Property Path -EQ $processPath |
         Select-Object -ExpandProperty Modules |
+        Select-Object -ExpandProperty Path | 
         Sort-Object -Unique
     $difModules = $difSnapshot |
-        Where-Object -Property Path -EQ $path |
+        Where-Object -Property Path -EQ $processPath |
+        Where-Object -Property Modules -ne $null |
         Select-Object -ExpandProperty Modules |
+        Select-Object -ExpandProperty Path | 
         Sort-Object -Unique
-    compare-object -ReferenceObject $refModules -DifferenceObject $difModules |
-        Where-Object -Property SideIndicator -Eq '=>' |
-        Select-Object -ExpandProperty InputObject |
-        Write-Output
+    if($refModules){
+        compare-object -ReferenceObject $refModules -DifferenceObject $difModules |
+            Where-Object -Property SideIndicator -Eq '=>' |
+            Select-Object -ExpandProperty InputObject |
+            Write-Output
+    }
+    else{
+        $difModules |
+            Write-Output
+    }
 }
 
 function Compare-Snapshot($referenceSnapshot, $differenceSnapshot){
-    $newProcesses = Get-SnapshotNewProcesses;
+    $newProcesses = Get-SnapshotNewProcesses($referenceSnapshot, $differenceSnapshot);
     $newModulesByProcess = foreach($process in $differenceSnapshot){
-        if(!($newProcesses -contains $process.Path)){
-            $newModules = Get-SnapshotNewModules($process.Path, $referenceSnapshot, $differenceSnapshot)
+        if($process.Path -and !($newProcesses -contains $process.Path)){
+            $newModules = Get-SnapshotNewModules -processPath $process.Path -refSnapshot $referenceSnapshot -difSnapshot $differenceSnapshot
             $properties = @{
                 'Name' = $process.Name;
                 'Path' = $process.Path;
                 'NewModules' = $newModules;
             }
-            New-object psobject -Property $properties |
-                Write-Output
+            if($null -ne $properties['NewModules']){
+                New-object psobject -Property $properties | 
+                    Write-Output
+            }
         }
-    }
+    } 
     $properties = @{
         'NewProcesses' = $newProcesses;
-        'NewModules' = $newModulesByProcess;
+        'NewModules' = $newModulesByProcess | Sort-Object -Unique;
     }
     $retval = New-Object PSObject -Property $properties
     write-output $retval
