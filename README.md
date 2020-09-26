@@ -47,7 +47,3 @@ You can see Explorer loaded PSAPI.dll and mswsock.dll (for bad things).
 PS C:\Users\justi\git\powershot> $snapshot1 | Export-Clixml snapshot1.xml
 PS C:\Users\justi\git\powershot> $loaded = Import-Clixml .\snapshot1.xml
 ```
-
-# Todo
-
-- Add helper function to compare snapshots by process paths and modules per process
