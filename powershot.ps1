@@ -58,13 +58,6 @@ function Get-SnapshotPaths($snapshot){
         Write-Output
 }
 
-function Get-SnapshotModules($process){
-    $process | 
-        Sort-Object -Unique -Property Path | 
-        Select-Object -ExpandProperty Path |
-        Write-Output
-}
-
 function Get-SnapshotNewProcesses($reference, $difference){
     $referenceProcessPaths = get-SnapshotPaths($referenceSnapshot)
     $differenceProcessPaths = get-SnapshotPaths($differenceSnapshot)
@@ -74,10 +67,38 @@ function Get-SnapshotNewProcesses($reference, $difference){
     write-output $newProcesses
 }
 
+function Get-SnapshotNewModules($path, $refSnapshot, $difSnapshot){
+    $refModules = $refSnapshot |
+        Where-Object -Property Path -EQ $path |
+        Select-Object -ExpandProperty Modules |
+        Sort-Object -Unique
+    $difModules = $difSnapshot |
+        Where-Object -Property Path -EQ $path |
+        Select-Object -ExpandProperty Modules |
+        Sort-Object -Unique
+    compare-object -ReferenceObject $refModules -DifferenceObject $difModules |
+        Where-Object -Property SideIndicator -Eq '=>' |
+        Select-Object -ExpandProperty InputObject |
+        Write-Output
+}
+
 function Compare-Snapshot($referenceSnapshot, $differenceSnapshot){
+    $newProcesses = Get-SnapshotNewProcesses;
+    $newModulesByProcess = foreach($process in $differenceSnapshot){
+        if(!($newProcesses -contains $process.Path)){
+            $newModules = Get-SnapshotNewModules($process.Path, $referenceSnapshot, $differenceSnapshot)
+            $properties = @{
+                'Name' = $process.Name;
+                'Path' = $process.Path;
+                'NewModules' = $newModules;
+            }
+            New-object psobject -Property $properties |
+                Write-Output
+        }
+    }
     $properties = @{
-        'NewProcesses' = Get-SnapshotNewProcesses;
-        'NewModules' = @();
+        'NewProcesses' = $newProcesses;
+        'NewModules' = $newModulesByProcess;
     }
     $retval = New-Object PSObject -Property $properties
     write-output $retval
