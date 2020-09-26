@@ -4,24 +4,21 @@ PowerShell snapshot
 ## Example: Starting a process
 
 ```
-PS C:\Users\justi\git\powershot> $snapshot1 = .\powershot.ps1
-PS C:\Users\justi\git\powershot> notepad.exe
-PS C:\Users\justi\git\powershot> $snapshot2 = .\powershot.ps1
-PS C:\Users\justi\git\powershot> $paths1 = $snapshot1 | Sort-Object -Unique -Property Path | select-object -ExpandProperty Path
-PS C:\Users\justi\git\powershot> $paths2 = $snapshot2 | Sort-Object -Unique -Property Path | select-object -ExpandProperty Path
-PS C:\Users\justi\git\powershot> Compare-Object $paths1 $paths2
+PS C:\Users\justi\git\powershot> . .\powershot.ps1 
+PS C:\Users\justi\git\powershot> $snap1 = get-snapshot
+PS C:\Users\justi\git\powershot> $snap2 = get-snapshot
+PS C:\Users\justi\git\powershot> $diff = Compare-Snapshot $snap1 $snap2      
+PS C:\Users\justi\git\powershot> $diff
 
+NewModules NewProcesses
+---------- ------------
+{}         {C:\Program Files\Notepad++\notepad++.exe, C:\Windows\System32\smartscreen.exe}
 
-InputObject                                SideIndicator
------------                                -------------
-C:\WINDOWS\system32\notepad.exe            =>
-C:\Windows\System32\smartscreen.exe        =>
-C:\WINDOWS\system32\backgroundTaskHost.exe <=
+PS C:\Users\justi\git\powershot> $diff | Select-Object -ExpandProperty NewProcesses
 
-PS C:\Users\justi\git\powershot>
+C:\Program Files\Notepad++\notepad++.exe
+C:\Windows\System32\smartscreen.exe
 ```
-
-You can see notepad.exe started in the second one.
 
 ## Example: Comparing modules to find Meterpreter in Explorer.exe
 
